@@ -1,0 +1,2 @@
+# syncMySqlToHDFS
+将MySql的数据以avro的格式同步到HDFS中
