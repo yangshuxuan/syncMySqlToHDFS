@@ -35,7 +35,7 @@ class RealTimeEvents(object):
 		self.prefix = deviceInfoTableName
 		self.kind = kind
 		self.initDir = "/user/ct_fota/YangShuxuanNotDelete"
-		self.iniFileName=self.prefix + ".ini"
+		self.iniFileName=self.kind + "/" + self.prefix + ".ini"
 		self.needFields = needFields
 		#self.initLog()
 		self.connectDB()
@@ -85,11 +85,12 @@ class RealTimeEvents(object):
 				self.curID_PT["FILEID"] = int(fp.readline().strip())
 		except IOError:
 			self.lastID = self.curID_PT["ID"]  = 0
-			self.curID_PT["PT"] = datetime.datetime.strptime("2017-02-18",'%Y-%m-%d').date()
+			self.curID_PT["PT"] = datetime.datetime.strptime("2017-03-08",'%Y-%m-%d').date()
 			self.curID_PT["FILEID"] = 0
+			
 
 	def initLog(self):
-		fileName = self.prefix + ".log"
+		fileName = self.kind + "/" + self.prefix + ".log"
 		logger=logging.getLogger()
 		hdlr=logging.FileHandler(fileName)
 		formatter=logging.Formatter('%(asctime)s %(levelname)s %(message)s')
@@ -106,7 +107,7 @@ class RealTimeEvents(object):
 		self.con=mdb.connect(db_ip,db_user,db_passwd,db_base,db_port,charset="utf8")
 
 	def saveToHDFS(self):
-		self.readWhere()
+		
 		qs="select %s from %s where push_time >= '%s 00:00:00' and push_time < '%s 00:00:00' and id>%d order by id asc;"\
 		%(self.needFields,self.prefix,self.curID_PT["PT"].strftime('%Y-%m-%d'),(self.curID_PT["PT"] + timedelta(1)).strftime('%Y-%m-%d'),self.curID_PT["ID"])
 		curAvroFileName = self.buildFileName()
@@ -138,23 +139,21 @@ class RealTimeEvents(object):
 				self.changtimes = 0
 				self.slogger.info("go on to %s\t%d"%(self.curID_PT["PT"],self.curID_PT["ID"]))
 				self.saveWhere()
-				if self.curID_PT["PT"] == datetime.datetime.strptime("2017-03-08",'%Y-%m-%d').date():
-					return 0.
 			return 1.
 		else:
 			self.lastID = self.curID_PT["ID"]
 			self.changtimes = 0
 			return 3.
 	def loopRun(self):
+		self.readWhere()
 		self.initLog()
 		self.slogger.info('You can gracefully kill -10 %d'%(os.getpid(),))
 
-		while True:
+		while self.curID_PT["PT"]<date.today(): #目前销量统计并非实时统计，因此必须限制只运行到当天之前的日期
 			if readyQuit:
 				break		
 			self.saveToHDFS()
 			t = self.changeDate()
-			if t == 0. : break
 			time.sleep(t)
 			self.checkMysqlState()
 
